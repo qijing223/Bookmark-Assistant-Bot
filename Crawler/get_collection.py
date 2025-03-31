@@ -10,34 +10,44 @@ page = ChromiumPage()
 def sign_in():
     page.get('https://www.xiaohongshu.com')
     print("请在20秒内扫码登录")
-    sleep(20)
-    # 登录后Cookie会自动保存在浏览器配置中，后续可复用
+    sleep(1)  # 留足扫码时间
 
-def scroll_and_collect(times=20):
-    all_data = []
+def scroll_and_collect(times=1):
+    all_data = set()  # 用 set 去重链接
 
     for i in tqdm(range(times)):
         sleep(random.uniform(1, 2))
         page.scroll.to_bottom()
-        sleep(1)
+        sleep(2)
 
-        sections = page.eles('.note-item')
+        sections = page.eles('a.cover.mask.ld')
         for section in sections:
             try:
-                footer = section.ele('.footer', timeout=1)
-                title = footer.ele('.title', timeout=1).text
-                author_wrapper = footer.ele('.author-wrapper', timeout=1)
-                author = author_wrapper.ele('.author', timeout=1).text
-                author_link = author_wrapper.ele('tag:a', timeout=1).link
-                author_img = author_wrapper.ele('tag:img', timeout=1).link
-                like = footer.ele('.like-wrapper', timeout=1).text or "0"
-                note_link = section.ele('tag:a', timeout=1).link
-
-                all_data.append([title, author, note_link, author_link, author_img, int(like)])
+                href = section.attr('href')
+                if href and href.startswith('/explore/'):  # 仅保留笔记链接
+                    full_link = f'https://www.xiaohongshu.com{href}'
+                    all_data.add(full_link)
             except:
                 continue
 
-    return all_data
+    print(f"✅ 共获取到 {len(all_data)} 篇笔记链接")
+    return list(all_data)
+
+def extract_detail(note_url):
+    try:
+        page.get(note_url)
+        page.wait.ele('.title', timeout=5)
+
+        title = page.ele('.title', timeout=1).text
+        author = page.ele('.author-name', timeout=1).text
+        author_link = page.ele('.author-name', timeout=1).parent().link
+        author_img = page.ele('.author-avatar img', timeout=1).link
+        like = page.ele('.interact-btn.like .num', timeout=1).text or '0'
+
+        return [title, author, note_url, author_link, author_img, int(like)]
+    except Exception as e:
+        print(f"❌ 获取失败: {note_url} | 原因: {e}")
+        return None
 
 def save_to_excel(data):
     df = pd.DataFrame(data, columns=['title', 'author', 'note_link', 'author_link', 'author_img', 'like'])
@@ -48,10 +58,19 @@ def save_to_excel(data):
 
 if __name__ == "__main__":
     sign_in()
-    # 替换为你自己的收藏夹链接
-    board_url = 'https://www.xiaohongshu.com/board/5e858e8f0000000001001e81?xhsshare=CopyLink&appuid=5e631c6b0000000001006dae'
+
+    board_url = 'https://www.xiaohongshu.com/board/663250f30000000017037d8d?xhsshare=CopyLink&appuid=605dff60000000000101dfa0&apptime=1743377081&share_id=f46a0ef7ec8a40e2aec4047a42d08204'
     page.get(board_url)
     print("正在加载收藏夹内容...")
-    sleep(3)
-    data = scroll_and_collect(times=20)
-    save_to_excel(data)
+
+    page.wait.eles_loaded('a.cover.mask.ld', timeout=15)
+    note_links = scroll_and_collect(times=15)
+
+    print("开始抓取详情页内容...")
+    all_contents = []
+    for link in tqdm(note_links):
+        detail = extract_detail(link)
+        if detail:
+            all_contents.append(detail)
+
+    save_to_excel(all_contents)
