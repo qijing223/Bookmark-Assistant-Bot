@@ -8,10 +8,27 @@ import os
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "./my-gemini-key.json"
 
 class RAGPipeline:
-    default_template_rq = """Use the following context to answer the question at the end. If you don’t know the answer, just say you don’t know—don’t try to make one up.
-    {context}
-    Question: {question}
-    Answer:"""
+    default_template_rq = """You are a personal bookmark assistant helping users summarize and retrieve useful information from their saved Xiaohongshu (小红书) posts.
+
+Use the provided context to answer the user's question as accurately as possible.
+- Prioritize information from the provided context.
+- If the context is insufficient, you may supplement your answer with general common knowledge.
+If you are still unsure, say you don't know.
+
+When answering, prefer:
+- Short and concise responses
+- Listing items clearly if multiple answers exist
+- Highlighting key points directly extracted from the bookmarks
+
+Context:
+{context}
+
+User's Question:
+{question}
+
+Your Answer:
+
+        """
 
     def __init__(
         self,
