@@ -1,0 +1,6 @@
+多模态相关改动：
+1，crawl_xiaohongshu_board.py 添加了图片url的爬取
+2，embedding_database.py 增加了两种图片信息提取方式，一种是传统的Tesseract OCR提取（extract_ocr_with_tesseract），一种是Unstructured方法（extract_from_image_with_unstructured）
+   可以在66行替换方法：ocr_parts = [self.extract_ocr_with_tesseract(url) for url in urls]
+   按理说extract_from_image_with_unstructured应该更强大，但我看了下示例下的数据库内容，没啥变化，所以都可以
+3，new_requirements.txt是安装了Unstructured后的版本，如果pip install "unstructured[local-inference-docs]"有部分依赖没有安装好，可以尝试用这个，或者pip install "unstructured[all-docs]"+pip缺失依赖
