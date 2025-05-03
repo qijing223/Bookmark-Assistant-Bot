@@ -47,28 +47,47 @@ def crawl_xiaohongshu_board(board_url, excel_path='xiaohongshu_board.xlsx'):
     def extract_detail(page, note_url, retry_count=2):
         for attempt in range(retry_count):
             try:
-                # 使用更快的页面加载策略
+                # 加快页面加载
                 page.goto(note_url, wait_until='domcontentloaded', timeout=8000)
-                
-                # 等待关键元素加载
+
+                # 等待主要元素加载
                 page.wait_for_selector(".title", timeout=5000)
                 page.wait_for_selector(".note-text", timeout=5000)
-                
-                # 使用evaluate一次性获取数据，减少网络请求
+
+                # 提取标题、内容和图片URL（image_urls是字符串列表）
                 data = page.evaluate('''
                     () => {
+                        const raw_imgs = Array.from(document.querySelectorAll('img'))
+                            .map(img => img.src)
+                            .filter(src =>
+                                src.startsWith('http') &&
+                                !src.includes('/avatar/')
+                            );
+
+                        const clean_url = url => url.split('?')[0].split('|')[0];
+                        const seen = new Set();
+                        const deduped = [];
+
+                        for (const url of raw_imgs) {
+                            const base = clean_url(url);
+                            if (!seen.has(base)) {
+                                seen.add(base);
+                                deduped.push(url);
+                            }
+                        }
+
                         const title = document.querySelector('.title')?.innerText?.trim() || '';
                         const content = document.querySelector('.note-text')?.innerText?.trim() || '';
-                        return [title, content];
+                        return [title, content, deduped];
                     }
                 ''')
-                
-                if data and (data[0] or data[1]):  # 确保至少有标题或内容
-                    return [data[0], data[1], note_url]  # 返回标题、内容和URL
-                    
+
+                if data and (data[0] or data[1]):
+                    return [data[0], data[1], note_url, data[2]]  # 返回：标题、内容、URL、图片列表
+
                 if attempt < retry_count - 1:
                     time.sleep(1)
-                
+
             except Exception as e:
                 if attempt < retry_count - 1:
                     print(f"第 {attempt + 1} 次抓取失败: {note_url} | 将重试")
@@ -107,8 +126,9 @@ def crawl_xiaohongshu_board(board_url, excel_path='xiaohongshu_board.xlsx'):
             all_contents.append(detail)
     
     # 创建DataFrame
-    df = pd.DataFrame(all_contents, columns=['title', 'content', 'url'])
-    df = df.drop_duplicates()
+    df = pd.DataFrame(all_contents, columns=['title', 'content', 'url', 'images'])
+    df = df.drop_duplicates(subset=["url"])
+
     
     # 保存到Excel
     df.to_excel(excel_path, index=False)

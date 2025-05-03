@@ -24,3 +24,5 @@ if __name__ == "__main__":
 
     # 删除db内容
     storage.client.drop_collection(collection_name="xiaohongshu_content")
+
+    storage.close()

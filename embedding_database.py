@@ -2,77 +2,102 @@ from pymilvus import MilvusClient
 from sentence_transformers import SentenceTransformer
 import numpy as np
 import pandas as pd
+import pytesseract
+from PIL import Image
+import requests
+from io import BytesIO
+import ast
+from unstructured.partition.image import partition_image
 
 
 class MilvusStorage:
     def __init__(self, collection_name="xiaohongshu_content", db_path="./milvus_demo.db"):
-        """
-        初始化 Milvus 存储
-        Args:
-            collection_name: 集合名称
-            db_path: Milvus Lite 数据库路径
-        """
-        # 使用 MilvusClient 初始化（数据库文件会存储在 db_path 指定的位置）
         self.client = MilvusClient(db_path)
         self.collection_name = collection_name
-        self.dim = 384  # MiniLM-L12-v2 的向量维度
-        
-        # 如果集合不存在，则创建（创建时只需指定 collection_name 和 dimension）
+        self.dim = 384  # MiniLM-L12-v2 输出维度
+
         if not self.client.has_collection(collection_name):
             self.client.create_collection(
                 collection_name=collection_name,
                 dimension=self.dim
             )
-        
-        # 初始化 SentenceTransformer 模型，用于生成文本嵌入
+
         self.model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
-    
+
+    def close(self):
+        self.client.close()
+
     def _get_embeddings(self, texts):
-        """获取文本的嵌入向量，关闭进度条显示"""
         embeddings = self.model.encode(texts, show_progress_bar=False)
         return embeddings.tolist()
-    
+
+    def extract_ocr_with_tesseract(self, img_url: str) -> str:
+        try:
+            # print(f"🔍 Tesseract 提取图片: {img_url}")
+            response = requests.get(img_url, timeout=8)
+            img = Image.open(BytesIO(response.content)).convert("RGB")
+            text = pytesseract.image_to_string(img, lang='chi_sim+eng')
+            return text.strip()
+        except Exception as e:
+            print(f"❌ Tesseract 提取失败: {img_url}, 错误: {e}")
+            return ""
+
+    def extract_from_image_with_unstructured(self, img_url):
+        try:
+            response = requests.get(img_url, timeout=10)
+            img_bytes = BytesIO(response.content)
+            elements = partition_image(file=img_bytes)
+            text_blocks = [el.text for el in elements if el.text]
+            return "\n".join(text_blocks)
+        except Exception as e:
+            print(f"❌ 提取失败: {img_url}, 错误: {e}")
+            return ""
+
     def insert_data(self, df):
-        """
-        将数据插入到 Milvus
-        Args:
-            df: pandas DataFrame，要求包含 "title" 和 "content" 两列
-        """
-        # 提取文本信息
         titles = df['title'].tolist()
         contents = df['content'].tolist()
-        # 拼接 title 和 content 生成整体文本
-        combined_texts = [f"{t} {c}" for t, c in zip(titles, contents)]
-        # 计算文本嵌入
+        image_lists = df['images'].tolist() if 'images' in df.columns else ["[]"] * len(df)
+
+        # 提取每条记录的 OCR 文本
+        ocr_texts = []
+        for raw in image_lists:
+            try:
+                urls = ast.literal_eval(raw) if isinstance(raw, str) else raw
+                ocr_parts = [self.extract_ocr_with_tesseract(url) for url in urls]
+                ocr_text = "\n".join([t for t in ocr_parts if t.strip()])
+                if ocr_text:
+                    print(ocr_text)
+                else:
+                    print("⚠️ 没有提取到 OCR 内容！")
+            except Exception as e:
+                print(f"❌ OCR 提取失败：{e}")
+                ocr_text = ""
+            ocr_texts.append(ocr_text)
+
+        combined_texts = [
+            f"{t} {c} {ocr}".strip()
+            for t, c, ocr in zip(titles, contents, ocr_texts)
+        ]
+
         embeddings = self._get_embeddings(combined_texts)
-        
-        # 构造数据，每条记录为一个字典，不需要存储 url（如果需要可自行添加）
+
         data = []
         for i, emb in enumerate(embeddings):
             data.append({
-                "id": i,                # 可选字段，若不需要可以由 Milvus 自动生成
-                "vector": emb,          # 向量字段
-                "title": titles[i],     # 文本标题
-                "content": contents[i]  # 文本内容
+                "id": i,
+                "vector": emb,
+                "title": titles[i],
+                "content": combined_texts[i]
             })
-        
-        # 插入数据到指定集合
+
         res = self.client.insert(
             collection_name=self.collection_name,
             data=data
         )
         return res
-    
+
+
     def search(self, query_text, top_k=5):
-        """
-        搜索相似内容
-        Args:
-            query_text: 查询文本
-            top_k: 返回最相似的前 k 条记录
-        Returns:
-            搜索结果（列表）
-        """
-        # 计算查询文本的嵌入向量
         query_embedding = self._get_embeddings([query_text])[0]
         res = self.client.search(
             collection_name=self.collection_name,
@@ -81,30 +106,16 @@ class MilvusStorage:
             output_fields=["title", "content"]
         )
         return res
-    
+
     def query(self, filter_str):
-        """
-        根据过滤条件查询记录
-        Args:
-            filter_str: 查询过滤表达式，例如 "title like '%AI%'"
-        Returns:
-            查询结果
-        """
         res = self.client.query(
             collection_name=self.collection_name,
             filter=filter_str,
             output_fields=["title", "content"]
         )
         return res
-    
+
     def delete(self, filter_str):
-        """
-        根据过滤条件删除记录
-        Args:
-            filter_str: 删除过滤表达式，例如 "title == 'xxx'"
-        Returns:
-            删除操作结果
-        """
         res = self.client.delete(
             collection_name=self.collection_name,
             filter=filter_str
