@@ -7,7 +7,8 @@ def run_test():
         db_path="./milvus_demo.db",
         top_k=3,
         temperature=0.7,
-        model_name="gemini-1.5-pro"
+        model_name="gemini-1.5-pro",
+        similarity_threshold=0.5
     )
     # 测试查询
     query = "Steamed Dumpling Guide."

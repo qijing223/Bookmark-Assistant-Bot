@@ -97,7 +97,7 @@ class MilvusStorage:
         return res
 
 
-    def search(self, query_text, top_k=5):
+    def search(self, query_text, top_k=5, similarity_threshold=0.5):
         query_embedding = self._get_embeddings([query_text])[0]
         res = self.client.search(
             collection_name=self.collection_name,
@@ -105,7 +105,14 @@ class MilvusStorage:
             limit=top_k,
             output_fields=["title", "content"]
         )
-        return res
+        # 过滤掉相似度低于阈值的结果
+        filtered_results = []
+        for match in res[0]:
+            # Milvus 返回的是距离值，需要转换为相似度分数
+            similarity = 1 - match["distance"]  # 将距离转换为相似度
+            if similarity >= similarity_threshold:
+                filtered_results.append(match)
+        return [filtered_results] if filtered_results else [[]]
 
     def query(self, filter_str):
         res = self.client.query(

@@ -37,10 +37,12 @@ Your Answer:
         top_k: int = 3,
         temperature: float = 0.7,
         model_name: str = "gemini-1.5-pro",
-        template: str = default_template_rq
+        template: str = default_template_rq,
+        similarity_threshold: float = 0.5
     ):
         # 初始化向量库
         self.storage = MilvusStorage(collection_name=collection_name, db_path=db_path)
+        self.similarity_threshold = similarity_threshold
 
         # 初始化 LLM & prompt
         self.llm = ChatVertexAI(model_name=model_name, temperature=temperature)
@@ -48,7 +50,13 @@ Your Answer:
                                 template=template)
 
         # 构建 Retriever
-        self.retriever = MilvusMultiQueryRetriever(storage=self.storage, top_k=top_k, query_rewrite=True, llm=self.llm)
+        self.retriever = MilvusMultiQueryRetriever(
+            storage=self.storage, 
+            top_k=top_k, 
+            query_rewrite=True, 
+            llm=self.llm,
+            similarity_threshold=self.similarity_threshold
+        )
 
         # 构建 QA Chain
         self.qa_chain = RetrievalQA.from_chain_type(
@@ -61,8 +69,17 @@ Your Answer:
     def answer(self, query: str) -> dict:
         """
         输入自然语言问题，返回答案及其来源文档。
+        如果没有找到相关文档，返回空结果。
         """
         result = self.qa_chain.invoke(query)
+        
+        # 如果没有找到相关文档，直接返回空结果
+        if not result["source_documents"]:
+            return {
+                "answer": "",
+                "sources": []
+            }
+            
         return {
             "answer": result["result"],
             "sources": [

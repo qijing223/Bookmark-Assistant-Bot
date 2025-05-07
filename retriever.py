@@ -12,6 +12,7 @@ class MilvusMultiQueryRetriever(BaseRetriever):
     top_k: int = Field(default=5)
     n_queries: int = Field(default=3)
     query_rewrite: bool = Field(default=True)
+    similarity_threshold: float = Field(default=0.5)
 
     def _generate_queries(self, query: str) -> List[str]:
         rewrite_prompt = PromptTemplate.from_template(
@@ -24,7 +25,7 @@ class MilvusMultiQueryRetriever(BaseRetriever):
         return queries[:self.n_queries]
     
     def _get_relevant_documents_for_one_query(self, query: str) -> List[Document]:
-        results = self.storage.search(query, top_k=self.top_k)
+        results = self.storage.search(query, top_k=self.top_k, similarity_threshold=self.similarity_threshold)
         docs = []
         for match in results[0]:
             metadata = {"title": match["entity"]["title"]}
