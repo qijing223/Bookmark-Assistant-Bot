@@ -4,7 +4,7 @@ from crawl_xiaohongshu_board import crawl_xiaohongshu_board
 # 示例主函数，演示如何使用 MilvusStorage
 if __name__ == "__main__":
     # 爬取数据（要求 crawl_xiaohongshu_board 实现返回 DataFrame，包含 "title" 和 "content" 列）
-    board_url = "https://www.xiaohongshu.com/board/681b1576000000002203f1b1"
+    board_url = "https://www.xiaohongshu.com/board/67f9970b0000000022039d1a"
     df = crawl_xiaohongshu_board(board_url)
     
     # 创建 MilvusStorage 实例（若集合已存在则复用）
@@ -27,6 +27,6 @@ if __name__ == "__main__":
     print("查询结果：", res_query)
 
     # 删除db内容
-    storage.client.drop_collection(collection_name="xiaohongshu_content")
+    # storage.client.drop_collection(collection_name="xiaohongshu_content")
 
-    storage.close()
+    # storage.close()

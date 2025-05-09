@@ -57,6 +57,7 @@ class MilvusStorage:
         titles = df['title'].tolist()
         contents = df['content'].tolist()
         image_lists = df['images'].tolist() if 'images' in df.columns else ["[]"] * len(df)
+        links = df['url'].tolist()
 
         # 提取每条记录的 OCR 文本
         ocr_texts = []
@@ -87,7 +88,8 @@ class MilvusStorage:
                 "id": i,
                 "vector": emb,
                 "title": titles[i],
-                "content": combined_texts[i]
+                "content": combined_texts[i],
+                "url": links[i]
             })
 
         res = self.client.insert(
@@ -103,7 +105,7 @@ class MilvusStorage:
             collection_name=self.collection_name,
             data=[query_embedding],
             limit=top_k,
-            output_fields=["title", "content"]
+            output_fields=["title", "content", "url"],
         )
         # 过滤掉相似度低于阈值的结果
         filtered_results = []
@@ -118,7 +120,7 @@ class MilvusStorage:
         res = self.client.query(
             collection_name=self.collection_name,
             filter=filter_str,
-            output_fields=["title", "content"]
+            output_fields=["title", "content", "url"]
         )
         return res
 

@@ -28,7 +28,8 @@ class MilvusMultiQueryRetriever(BaseRetriever):
         results = self.storage.search(query, top_k=self.top_k, similarity_threshold=self.similarity_threshold)
         docs = []
         for match in results[0]:
-            metadata = {"title": match["entity"]["title"]}
+            metadata = {"title": match["entity"]["title"], 
+                       "url": match["entity"]["url"]}
             content = match["entity"]["content"]
             docs.append(Document(page_content=content, metadata=metadata))
         return docs

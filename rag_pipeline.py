@@ -76,7 +76,7 @@ Your Answer:
         # 如果没有找到相关文档，直接返回空结果
         if not result["source_documents"]:
             return {
-                "answer": "",
+                "answer": "No relevant documents found.",
                 "sources": []
             }
             
@@ -85,7 +85,8 @@ Your Answer:
             "sources": [
                 {
                     "title": doc.metadata.get("title", ""),
-                    "content": doc.page_content
+                    "content": doc.page_content,
+                    "url": doc.metadata.get("url", ""),
                 }
                 for doc in result["source_documents"]
             ]

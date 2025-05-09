@@ -68,7 +68,7 @@ def rag_chat(user_message: str, history: list[tuple[str, str]], favorite_url: st
     for i, src in enumerate(response["sources"], 1):
         answer += f"\n--- Source {i} ---\n"
         answer += f"Title: {src['title']}\n"
-        answer += f"Content: {src['content']}...\n"
+        answer += f"URL: {src['url']}...\n"
     return answer
 
 # ---------- Gradio UI ----------

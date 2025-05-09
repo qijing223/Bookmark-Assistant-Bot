@@ -11,7 +11,7 @@ def run_test():
         similarity_threshold=0.5
     )
     # 测试查询
-    query = "Steamed Dumpling Guide."
+    query = "Chinese food recipe"
     response = pipeline.answer(query)
 
     # 打印结果
@@ -21,7 +21,7 @@ def run_test():
     for i, src in enumerate(response["sources"], start=1):
         print(f"\n--- Source {i} ---")
         print("📌 标题：", src["title"])
-        print("📄 内容片段：", src["content"][:200], "..." if len(src["content"]) > 200 else "")
+        print("📄 url：", src["url"])
 
 if __name__ == "__main__":
     run_test()
