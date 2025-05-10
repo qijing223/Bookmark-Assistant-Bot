@@ -69,14 +69,14 @@ Your Answer:
     def answer(self, query: str) -> dict:
         """
         输入自然语言问题，返回答案及其来源文档。
-        如果没有找到相关文档，返回空结果。
+        如果没有找到相关文档，让 LLM 提供通用回答。
         """
         result = self.qa_chain.invoke(query)
         
-        # 如果没有找到相关文档，直接返回空结果
+        # 如果没有找到相关文档，让 LLM 提供通用回答
         if not result["source_documents"]:
             return {
-                "answer": "No relevant documents found.",
+                "answer": result["result"],
                 "sources": []
             }
             

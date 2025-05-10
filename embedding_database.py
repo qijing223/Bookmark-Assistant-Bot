@@ -111,8 +111,8 @@ class MilvusStorage:
         filtered_results = []
         for match in res[0]:
             # Milvus 返回的是距离值，需要转换为相似度分数
-            similarity = 1 - match["distance"]  # 将距离转换为相似度
-            if similarity >= similarity_threshold:
+            similarity = match["distance"]  # 将距离转换为相似度
+            if similarity <= similarity_threshold:
                 filtered_results.append(match)
         return [filtered_results] if filtered_results else [[]]
 
